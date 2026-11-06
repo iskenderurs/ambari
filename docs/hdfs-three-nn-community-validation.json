@@ -1,0 +1,52 @@
+{
+  "license": "Apache-2.0",
+  "candidate": "three-nn-unified-v1-public-source",
+  "date": "2026-11-06",
+  "base_commit": "15feafb7dfa2f4964a01edac47c0956ab29ad99e",
+  "upstream_pr": 4038,
+  "upstream_pr_head": "c53c5861a8369d6a77e87f382bd99d19f6a7cf32",
+  "focused_backend_tests": {
+    "passed": 26,
+    "command": "python3 -m unittest discover -s ambari-server/src/test/python/stacks/BIGTOP/3.2.0/HDFS -p test_multiple_namenodes.py -v"
+  },
+  "focused_ui_tests": {
+    "passed": 15,
+    "command": "node ambari-web/test/standalone/multiple_nn_unified_test.js"
+  },
+  "fencer_guard_tests": {
+    "passed": 3,
+    "command": "python3 -m unittest discover -s dev-support/hdfs-three-nn-lab -p test_pinned_fencer.py -v"
+  },
+  "web_build": {
+    "passed": true,
+    "compiled_files": 1025,
+    "command": "cd ambari-web && ./node_modules/.bin/brunch build",
+    "dependencies": "reused existing local Ambari 3.0.0 node_modules"
+  },
+  "backend_matches_original_unified_runtime_payload": [
+    {
+      "path": "ambari-server/src/main/resources/stacks/BIGTOP/3.2.0/services/HDFS/metainfo.xml",
+      "sha256": "ff03f75cf88a7a0935080772f162478d3e07f3c53f3fcfe3d75f061a0c084e6b"
+    },
+    {
+      "path": "ambari-server/src/main/resources/stacks/BIGTOP/3.2.0/services/HDFS/package/scripts/datanode.py",
+      "sha256": "cf47cff81f52c1a473b167e46cd985984a20b24bd0d27c9d342b1a6940256ea4"
+    },
+    {
+      "path": "ambari-server/src/main/resources/stacks/BIGTOP/3.2.0/services/HDFS/package/scripts/params_linux.py",
+      "sha256": "c2914930f6e12b9869e8dff3cbfe10441970191453255ec66fad2b423365ed8c"
+    },
+    {
+      "path": "ambari-server/src/main/resources/stacks/BIGTOP/3.2.0/services/HDFS/package/scripts/utils.py",
+      "sha256": "0182d258244acb9b8b195c1f87f46e3060afce252eb4d1483393ba7da217116c"
+    },
+    {
+      "path": "ambari-server/src/main/resources/stacks/BIGTOP/3.2.0/services/HDFS/package/scripts/ha_topology.py",
+      "sha256": "7bdabb73526247ee0a0f48964fdf9ff614f3d619d251f5c630ce42c1859738b0"
+    }
+  ],
+  "full_maven_suite_run": false,
+  "fresh_unified_integration_run": false,
+  "full_unified_interactive_wizard_run": false,
+  "production_qualified": false
+}
