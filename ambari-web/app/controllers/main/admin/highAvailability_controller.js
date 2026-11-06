@@ -165,6 +165,34 @@ App.MainAdminHighAvailabilityController = App.WizardController.extend({
   },
 
   /**
+   * enable Multiple NameNode
+   * @return {Boolean}
+   */
+  enableMultipleNamenode: function () {
+    //Prerequisite Checks
+    var message = [];
+    var nameNodes = App.HostComponent.find().filterProperty('componentName', 'NAMENODE');
+    if (nameNodes.length !== 2 || !nameNodes.everyProperty('workStatus', 'STARTED')) {
+      message.push('Adding a third NameNode requires exactly two running NameNodes.');
+    }
+
+    if (!App.HostComponent.find().filterProperty('componentName', 'ZOOKEEPER_SERVER').everyProperty('workStatus', 'STARTED')) {
+      message.push(Em.I18n.t('admin.nameNodeFederation.wizard.required.zookeepers'));
+    }
+
+    if (!App.HostComponent.find().filterProperty('componentName', 'JOURNALNODE').everyProperty('workStatus', 'STARTED')) {
+      message.push(Em.I18n.t('admin.nameNodeFederation.wizard.required.journalnodes'));
+    }
+    if (message.length > 0) {
+      this.showErrorPopup(message);
+      return false;
+    }
+    App.router.transitionTo('main.services.enableMultipleNamenode');
+    return true;
+  },
+
+
+  /**
    * open Manage JournalNode Wizard if there are two started NameNodes with defined active/standby state
    * @returns {boolean}
    */
