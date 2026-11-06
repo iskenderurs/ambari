@@ -30,7 +30,7 @@
           <name>NAMENODE</name>
           <displayName>NameNode</displayName>
           <category>MASTER</category>
-          <cardinality>1-2</cardinality>
+          <cardinality>1-3</cardinality>
           <versionAdvertised>true</versionAdvertised>
           <reassignAllowed>true</reassignAllowed>
           <timelineAppid>namenode</timelineAppid>
@@ -152,6 +152,25 @@
             <scriptType>PYTHON</scriptType>
             <timeout>1200</timeout>
           </commandScript>
+          <customCommands>
+            <customCommand>
+              <name>REFRESH_NAMENODES</name>
+              <commandScript>
+                <script>scripts/datanode.py</script>
+                <scriptType>PYTHON</scriptType>
+                <timeout>600</timeout>
+              </commandScript>
+            </customCommand>
+            <customCommand>
+              <name>REFRESH_NAMENODE</name>
+              <hidden>true</hidden>
+              <commandScript>
+                <script>scripts/datanode.py</script>
+                <scriptType>PYTHON</scriptType>
+                <timeout>600</timeout>
+              </commandScript>
+            </customCommand>
+          </customCommands>
           <bulkCommands>
             <displayName>DataNodes</displayName>
             <!-- Used by decommission and recommission -->

@@ -35,7 +35,8 @@ from resource_management.libraries.functions.stack_features import check_stack_f
 from resource_management.core import shell
 from resource_management.core.shell import as_user, as_sudo
 from resource_management.core.source import Template
-from resource_management.core.exceptions import ComponentIsNotRunning
+from resource_management.core.exceptions import ComponentIsNotRunning, Fail
+from ha_topology import get_failover_target
 from resource_management.core.logger import Logger
 from resource_management.libraries.functions.curl_krb_request import curl_krb_request
 from resource_management.libraries.script.script import Script
@@ -78,8 +79,8 @@ def initiate_safe_zkfc_failover():
   """
   If this is the active namenode, initiate a safe failover and wait for it to become the standby.
 
-  If an error occurs, force a failover to happen by killing zkfc on this host. In this case, during the Restart,
-  will also have to start ZKFC manually.
+  An Active stop requires successful graceful failover and positive Standby
+  confirmation. Uncertain HA state or failed handoff aborts the rolling stop.
   """
   import params
 
@@ -90,15 +91,30 @@ def initiate_safe_zkfc_failover():
       user=params.hdfs_user,
     )
 
+  if not params.namenode_nameservice or not params.namenode_id:
+    raise Fail("Cannot resolve the local NameNode identity for failover")
+
   active_namenode_id = None
   standby_namenode_id = None
   active_namenodes, standby_namenodes, unknown_namenodes = get_namenode_states(
-    params.hdfs_site, params.security_enabled, params.hdfs_user
+    params.hdfs_site,
+    params.security_enabled,
+    params.hdfs_user,
+    name_service=params.namenode_nameservice,
   )
   if active_namenodes:
     active_namenode_id = active_namenodes[0][0]
-  if standby_namenodes:
-    standby_namenode_id = standby_namenodes[0][0]
+  try:
+    standby_namenode_id = get_failover_target(
+      params.dfs_ha_namemodes_ids_list,
+      params.namenode_id,
+      active_namenodes,
+      standby_namenodes,
+    )
+  except ValueError as error:
+    raise Fail(str(error)) from error
+  if params.namenode_id == active_namenode_id and standby_namenode_id is None:
+    raise Fail("Cannot restart the Active NameNode without an available Standby")
 
   if active_namenode_id:
     Logger.info(format("Active NameNode id: {active_namenode_id}"))
@@ -108,49 +124,32 @@ def initiate_safe_zkfc_failover():
     for unknown_namenode in unknown_namenodes:
       Logger.info(f"NameNode HA state for {unknown_namenode[0]} is unknown")
 
-  if (
-    params.namenode_id == active_namenode_id
-    and params.other_namenode_id == standby_namenode_id
-  ):
+  if params.namenode_id == active_namenode_id and standby_namenode_id is not None:
     # Failover if this NameNode is active and other NameNode is up and in standby (i.e. ready to become active on failover)
     Logger.info(
       format(
-        "NameNode {namenode_id} is active and NameNode {other_namenode_id} is in standby"
+        "NameNode {namenode_id} is active and NameNode {standby_namenode_id} is in standby"
       )
     )
 
     failover_command = format(
-      "hdfs haadmin -ns {dfs_ha_nameservices} -failover {namenode_id} {other_namenode_id}"
+      "hdfs haadmin -ns {namenode_nameservice} -failover {namenode_id} {standby_namenode_id}"
     )
     check_standby_cmd = format(
-      "hdfs haadmin -ns {dfs_ha_nameservices} -getServiceState {namenode_id} | grep standby"
+      "hdfs haadmin -ns {namenode_nameservice} -getServiceState {namenode_id} | grep -x standby"
     )
 
     msg = f"Rolling Upgrade - Initiating a ZKFC failover on active NameNode host {params.hostname}."
     Logger.info(msg)
     code, out = shell.call(failover_command, user=params.hdfs_user, logoutput=True)
     Logger.info(format("Rolling Upgrade - failover command returned {code}"))
-    wait_for_standby = False
+    if code != 0:
+      raise Fail("Graceful NameNode failover failed; refusing the rolling stop")
 
-    if code == 0:
-      wait_for_standby = True
-    else:
-      # Try to kill ZKFC manually
-      was_zkfc_killed = kill_zkfc(params.hdfs_user)
-      code, out = shell.call(check_standby_cmd, user=params.hdfs_user, logoutput=True)
-      Logger.info(format("Rolling Upgrade - check for standby returned {code}"))
-      if code == 255 and out:
-        Logger.info("Rolling Upgrade - NameNode is already down.")
-      else:
-        if was_zkfc_killed:
-          # Only mandate that this be the standby namenode if ZKFC was indeed killed to initiate a failover.
-          wait_for_standby = True
-
-    if wait_for_standby:
-      Logger.info("Waiting for this NameNode to become the standby one.")
-      Execute(
-        check_standby_cmd, user=params.hdfs_user, tries=50, try_sleep=6, logoutput=True
-      )
+    Logger.info("Waiting for this NameNode to become the standby one.")
+    Execute(
+      check_standby_cmd, user=params.hdfs_user, tries=50, try_sleep=6, logoutput=True
+    )
   else:
     msg = (
       f"Rolling Upgrade - Skipping ZKFC failover on NameNode host {params.hostname}."

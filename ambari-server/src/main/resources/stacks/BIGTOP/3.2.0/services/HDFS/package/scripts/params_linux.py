@@ -24,6 +24,8 @@ import ambari_simplejson as json  # simplejson is much faster comparing to Pytho
 import os
 import re
 
+from ha_topology import get_local_namenode
+
 from ambari_commons.os_check import OSCheck
 
 from resource_management.libraries.functions import conf_select
@@ -430,41 +432,27 @@ zk_namespace = default(
   "/configurations/hdfs-site/ha.zookeeper.parent-znode", "/hadoop-ha"
 )
 
-# Values for the current Host
-namenode_id = None
-namenode_rpc = None
+# Values for the current host, scoped to its exact nameservice and NN ID.
 
+namenode_nameservice, namenode_id, namenode_rpc = get_local_namenode(
+  hdfs_site, hostname, public_hostname
+)
+dfs_ha_enabled = any(
+  len([nn_id for nn_id in ids.split(",") if nn_id.strip()]) > 1
+  for ids in dfs_ha_namenode_ids_all_ns.values()
+)
 dfs_ha_namemodes_ids_list = []
 other_namenode_id = None
-
-for ns, dfs_ha_namenode_ids in dfs_ha_namenode_ids_all_ns.items():
-  found = False
-  if not is_empty(dfs_ha_namenode_ids):
-    dfs_ha_namemodes_ids_list = dfs_ha_namenode_ids.split(",")
-    dfs_ha_namenode_ids_array_len = len(dfs_ha_namemodes_ids_list)
-    if dfs_ha_namenode_ids_array_len > 1:
-      dfs_ha_enabled = True
-  if dfs_ha_enabled:
-    for nn_id in dfs_ha_namemodes_ids_list:
-      nn_host = config["configurations"]["hdfs-site"][
-        format("dfs.namenode.rpc-address.{ns}.{nn_id}")
-      ]
-      if (
-        hostname.lower() in nn_host.lower()
-        or public_hostname.lower() in nn_host.lower()
-      ):
-        namenode_id = nn_id
-        namenode_rpc = nn_host
-        found = True
-    # With HA enabled namenode_address is recomputed
-    namenode_address = format("hdfs://{ns}")
-
-    # Calculate the namenode id of the other namenode. This is needed during RU to initiate an HA failover using ZKFC.
-    if namenode_id is not None and len(dfs_ha_namemodes_ids_list) == 2:
-      other_namenode_id = list(set(dfs_ha_namemodes_ids_list) - set([namenode_id]))[0]
-
-  if found:
-    break
+if namenode_nameservice is not None:
+  dfs_ha_namemodes_ids_list = [
+    nn_id.strip()
+    for nn_id in dfs_ha_namenode_ids_all_ns[namenode_nameservice].split(",")
+  ]
+  namenode_address = "hdfs://" + namenode_nameservice
+  if len(dfs_ha_namemodes_ids_list) == 2:
+    other_namenode_id = next(
+      nn_id for nn_id in dfs_ha_namemodes_ids_list if nn_id != namenode_id
+    )
 
 
 if dfs_http_policy is not None and dfs_http_policy.upper() == "HTTPS_ONLY":

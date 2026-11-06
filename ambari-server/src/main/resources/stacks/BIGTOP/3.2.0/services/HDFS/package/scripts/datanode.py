@@ -24,6 +24,7 @@ from ambari_commons.constants import UPGRADE_TYPE_ROLLING
 
 from hdfs_datanode import datanode
 from resource_management import Script, Fail, shell, Logger
+from resource_management.core.resources.system import Execute
 from resource_management.libraries.script.script import Script
 from resource_management.libraries.functions import stack_select
 from resource_management.libraries.functions.stack_features import check_stack_feature
@@ -77,6 +78,25 @@ class DataNode(Script):
     env.set_params(params)
     Logger.info("RELOAD CONFIGS")
     reconfig("datanode", params.dfs_dn_ipc_address)
+
+  def refresh_namenodes(self, env):
+    """Register with the reviewed NN list after delivering its configuration."""
+    import params
+
+    env.set_params(params)
+    if params.security_enabled:
+      Execute(params.dn_kinit_cmd, user=params.hdfs_user)
+    hdfs_binary = self.get_hdfs_binary()
+    dfsadmin = get_dfsadmin_base_command(hdfs_binary)
+    Execute(
+      (dfsadmin + " -refreshNamenodes " + params.dfs_dn_ipc_address),
+      user=params.hdfs_user,
+      logoutput=True,
+    )
+
+  def refresh_namenode(self, env):
+    """Compatibility alias for the original PR 4038 Web command."""
+    return self.refresh_namenodes(env)
 
   def start(self, env, upgrade_type=None):
     import params
