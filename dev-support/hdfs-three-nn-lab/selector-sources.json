@@ -1,0 +1,14 @@
+{
+  "distro-select": {
+    "url": "https://raw.githubusercontent.com/apache/bigtop/ed20939f0f9fb7625cedaa7e4ffd8f0f812b1b65/bigtop-packages/src/common/bigtop-select/distro-select",
+    "sha256": "a29040f9b2187e7ec662a78b0f7922e51d14c8059069d362cde1c24eb35d6e1c",
+    "license": "Apache-2.0",
+    "audit": "stdlib filesystem operations; executed only inside disposable images"
+  },
+  "conf-select": {
+    "url": "https://raw.githubusercontent.com/apache/bigtop/ed20939f0f9fb7625cedaa7e4ffd8f0f812b1b65/bigtop-packages/src/common/bigtop-select/conf-select",
+    "sha256": "79660fdc9a428fa0696b02f73a67e62f70e3c735e87543992985f62a918d8918",
+    "license": "Apache-2.0",
+    "audit": "stdlib filesystem operations; executed only inside disposable images"
+  }
+}
